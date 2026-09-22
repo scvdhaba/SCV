@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hotel POS & Inventory System</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Export Libraries for PDF & Images -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+
+    <!-- ================= LOGIN SCREEN ================= -->
+    <div id="login-screen" class="modal" style="display:flex;">
+        <div class="modal-content" style="text-align: center;">
+            <h3>Hotel System Login</h3>
+            <p><small>Default: admin / 1234</small></p>
+            <input type="text" id="login-user" placeholder="Username">
+            <input type="password" id="login-pass" placeholder="Password">
+            <button class="btn-primary" onclick="handleLogin()">Login to System</button>
+        </div>
+    </div>
+
+    <!-- ================= MAIN APP CONTAINER ================= -->
+    <div class="container" id="main-app" style="display:none;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2>Hotel Management</h2>
+            <button onclick="handleLogout()" style="background:#dc3545; color:white; padding:5px 10px; font-size:12px; width:auto;">Logout</button>
+        </div>
+
+        <!-- Main Dashboard Navigation Tabs -->
+        <div class="tabs">
+            <button id="tab-billing" class="active-tab" onclick="switchDashboard('billing')">Billing</button>
+            <button id="tab-menu" onclick="switchDashboard('menu')">Menu</button>
+            <button id="tab-inventory" onclick="switchDashboard('inventory')">Stock & Reports</button>
+        </div>
+
+        <!-- ================= 1. BILLING & SALES DASHBOARD ================= -->
+        <div id="billing-dashboard" class="dashboard-section">
+            <h3>Restaurant Billing POS</h3>
+            
+            <div class="card">
+                <h4>Available Menu Dishes</h4>
+                <div id="dish-menu-list"></div>
+            </div>
+
+            <div class="card">
+                <h4>Current Bill Cart</h4>
+                <div id="cart-list"></div>
+                
+                <!-- Discount Options -->
+                <div style="margin: 10px 0;">
+                    <label><strong>Apply Discount:</strong></label>
+                    <div style="display: flex; gap: 5px; margin: 5px 0;">
+                        <button type="button" onclick="setDiscount(5)">5%</button>
+                        <button type="button" onclick="setDiscount(10)">10%</button>
+                        <button type="button" onclick="setDiscount(20)">20%</button>
+                        <button type="button" onclick="setDiscount(50)">50%</button>
+                        <button type="button" onclick="setDiscount(0)">None</button>
+                    </div>
+                    <input type="number" id="custom-discount" placeholder="Custom Discount (%)" oninput="setCustomDiscount(this.value)">
+                </div>
+
+                <h4>Subtotal: ₹<span id="cart-subtotal">0</span></h4>
+                <h4>Discount: -₹<span id="cart-disc-amt">0</span></h4>
+                <h3>Grand Total: ₹<span id="cart-total">0</span></h3>
+                <button class="btn-primary" onclick="openBillPreview()">Preview Bill Before Checkout</button>
+            </div>
+
+            <!-- Sales Reports Section with Export Options -->
+            <div class="card" id="sales-report-card">
+                <h4>Sales Reports</h4>
+                <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+                    <button class="btn-secondary" onclick="renderSalesReports('daily')">Daily</button>
+                    <button class="btn-secondary" onclick="renderSalesReports('mtd')">MTD</button>
+                    <button class="btn-secondary" onclick="renderSalesReports('ytd')">YTD</button>
+                </div>
+                <div id="sales-report-view"></div>
+
+                <!-- Export Buttons -->
+                <div style="display: flex; gap: 5px; margin-top: 10px;">
+                    <button class="btn-success" style="font-size:12px; padding:6px;" onclick="exportSales('excel')">Export Excel</button>
+                    <button class="btn-danger" style="font-size:12px; padding:6px;" onclick="exportSales('pdf')">Export PDF</button>
+                    <button class="btn-secondary" style="font-size:12px; padding:6px; background:#17a2b8;" onclick="exportSales('jpg')">Export JPG</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= 2. MENU DASHBOARD (SEPARATE) ================= -->
+        <div id="menu-dashboard" class="dashboard-section" style="display:none;">
+            <h3>Menu Management</h3>
+            <div class="card">
+                <h4 id="dish-form-title">Create / Edit Menu Dish</h4>
+                <input type="hidden" id="edit-dish-id">
+                <input type="text" id="dish-name" placeholder="Dish Name (e.g., Fried Rice)">
+                <input type="number" id="dish-price" placeholder="Selling Price (₹)">
+                <label><small>Optional Raw Material Deduction:</small></label>
+                <select id="dish-raw-select" style="width:100%; padding:10px; margin:5px 0 5px 0; border-radius:4px; border:1px solid #ccc;"></select>
+                <input type="number" id="dish-raw-qty" placeholder="Qty consumed per 1 dish (leave blank if none)">
+                <button id="dish-save-btn" class="btn-primary" onclick="saveMenuDish()">Save Menu Dish</button>
+                <button id="dish-cancel-btn" class="btn-danger" style="display:none; margin-top:5px;" onclick="cancelEditDish()">Cancel Edit</button>
+            </div>
+
+            <div class="card">
+                <h4>Existing Menu Dishes</h4>
+                <div id="dish-management-list"></div>
+            </div>
+        </div>
+
+        <!-- ================= 3. STOCK INVENTORY & REPORTS DASHBOARD ================= -->
+        <div id="inventory-dashboard" class="dashboard-section" style="display:none;">
+            <h3>Inventory & Stock Control</h3>
+
+            <!-- Item Master -->
+            <div class="card">
+                <h4 id="master-form-title">1. Item Master (Add Raw Material)</h4>
+                <input type="hidden" id="edit-raw-id">
+                <input type="text" id="raw-name" placeholder="Material Name (e.g., Rice, Oil)">
+                <input type="text" id="raw-unit" placeholder="Unit (e.g., kg, liters)">
+                <input type="number" id="raw-min" placeholder="Low Stock Alert Limit">
+                <button id="master-btn" class="btn-success" onclick="saveRawMaterial()">Add to Item Master</button>
+                <button id="cancel-edit-btn" class="btn-danger" style="display:none; margin-top:5px;" onclick="cancelEditRaw()">Cancel Edit</button>
+                <div id="item-master-list" style="margin-top: 10px;"></div>
+            </div>
+
+            <!-- Stock In / Out -->
+            <div class="card">
+                <h4>2. Stock In / Stock Out Entry</h4>
+                <select id="select-raw-item" style="width:100%; padding:10px; margin:5px 0 10px 0; border-radius:4px; border:1px solid #ccc;"></select>
+                <input type="number" id="trans-qty" placeholder="Quantity">
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-success" style="flex:1;" onclick="adjustStock('in')">Stock IN (+)</button>
+                    <button class="btn-danger" style="flex:1;" onclick="adjustStock('out')">Stock OUT (-)</button>
+                </div>
+            </div>
+
+            <!-- Stock Reports -->
+            <div class="card">
+                <h4>3. Stock In/Out Reports</h4>
+                <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+                    <button class="btn-secondary" onclick="renderStockReports('daily')">Daily Logs</button>
+                    <button class="btn-secondary" onclick="renderStockReports('mtd')">MTD Logs</button>
+                    <button class="btn-secondary" onclick="renderStockReports('ytd')">YTD Logs</button>
+                </div>
+                <div id="stock-report-view"></div>
+            </div>
+
+            <!-- Stock Status Overview -->
+            <div class="card">
+                <h4>4. Raw Material Status & Alerts</h4>
+                <div id="raw-stock-overview"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ================= BILL PREVIEW MODAL ================= -->
+    <div id="bill-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3>Bill Preview</h3>
+            <div id="preview-items-list" style="margin: 10px 0; max-height: 150px; overflow-y: auto;"></div>
+            <hr>
+            <p>Subtotal: ₹<span id="prev-subtotal">0</span></p>
+            <p>Discount Applied: <span id="prev-disc">0</span>%</p>
+            <h4>Grand Total: ₹<span id="prev-total">0</span></h4>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="btn-success" style="flex:1;" onclick="confirmCheckout()">Confirm & Checkout</button>
+                <button class="btn-danger" style="flex:1;" onclick="closeBillPreview()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
